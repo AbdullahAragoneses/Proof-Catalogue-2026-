@@ -2543,10 +2543,17 @@ function renderAll() {
   let totalGraded = 0, totalAll = 0;
   tabs.forEach(({ key, data }) => {
     const grid = document.getElementById('grid-' + key);
-    grid.innerHTML = data.map(c => buildCard(c, key)).join('');
-    buildFilters(key, data);
-    totalGraded += data.filter(c => c.graded_flag === 'Y').length;
-    totalAll += data.length;
+    grid.innerHTML = key === 'sets' ? data.map(s => buildSetCard(s)).join('') : data.map(c => buildCard(c, key)).join('');
+    if (key !== 'sets') buildFilters(key, data);
+    if (key === 'sets') {
+      data.forEach(set => {
+        totalAll += set.members.length;
+        totalGraded += set.members.filter(m => m.graded_flag === 'Y').length;
+      });
+    } else {
+      totalGraded += data.filter(c => c.graded_flag === 'Y').length;
+      totalAll += data.length;
+    }
     const vis = document.getElementById('visible-' + key);
     if (vis) vis.textContent = 'Showing all ' + data.length + ' coins';
     const nc = document.getElementById('count-' + key);
