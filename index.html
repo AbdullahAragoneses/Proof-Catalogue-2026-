@@ -2709,6 +2709,30 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// Clients must never see Sold, Reserved, or Not For Sale coins here — this page is
+// public. The dashboard's own /api/catalogue feed deliberately keeps Sold coins in
+// (its internal preview shows them with a badge), so filtering has to happen here,
+// not upstream, without affecting that other consumer.
+const HIDDEN_STATUSES = new Set(['Sold', 'Reserved', 'Not For Sale']);
+function stripHiddenStatuses(data) {
+  const out = { ...data };
+  for (const k of ['1oz', 'half', 'quarter', 'tenth']) {
+    out[k] = (data[k] || []).filter(c => !HIDDEN_STATUSES.has(c.status));
+  }
+  return out;
+}
+function computeStats(data) {
+  let total = 0, graded = 0;
+  for (const k of ['1oz', 'half', 'quarter', 'tenth']) {
+    for (const c of (data[k] || [])) { total++; if (c.graded_flag === 'Y') graded++; }
+  }
+  for (const s of (data.sets || [])) {
+    for (const m of s.members) { total++; if (m.graded_flag === 'Y') graded++; }
+  }
+  return { total, graded };
+}
+
+DATA = stripHiddenStatuses(DATA);
 renderAll();
 
 // Live catalogue feed — once the Proof Dashboard is deployed, this fetches current data
@@ -2719,12 +2743,13 @@ const CATALOGUE_API_URL = 'https://proof-dashboard-eight.vercel.app/api/catalogu
 fetch(CATALOGUE_API_URL)
   .then(r => r.ok ? r.json() : Promise.reject(new Error('bad response')))
   .then(res => {
-    DATA = res.DATA;
+    DATA = stripHiddenStatuses(res.DATA);
     renderAll();
+    const stats = computeStats(DATA);
     const tc = document.getElementById('total-count');
-    if (tc) tc.textContent = res.totalCoins;
+    if (tc) tc.textContent = stats.total;
     const gc = document.getElementById('graded-count');
-    if (gc) gc.textContent = res.gradedCount;
+    if (gc) gc.textContent = stats.graded;
   })
   .catch(() => { /* keep the embedded snapshot rendered above */ });
 </script>
